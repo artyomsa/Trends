@@ -104,6 +104,9 @@ def gradient_approx(f, x0, eps=1e-8):
     delta = np.diag(eps*np.ones(len(x0)))+x0
     return (np.apply_along_axis(f, 1, delta) - f(x0))/eps
 
+def gradient_approx_for_float(f, x0, eps=1e-8):
+    return (f(x0+eps)-f(x0))/eps
+
 
 def gradient_method(f, x0, n_steps=1000, learning_rate=1e-2, eps=1e-8):
 	"""
@@ -114,7 +117,6 @@ def gradient_method(f, x0, n_steps=1000, learning_rate=1e-2, eps=1e-8):
 		For gradient use finite difference approximation with eps step.
 	"""
     old_x = x0
-    f_ox = f(current_x)
     for i in xrange(n_steps):
         new_x = old_x - learning_rate*gradient_approx(f,old_x, eps)
         old_x = new_x
@@ -127,7 +129,7 @@ def linear_regression_predict(w, b, X):
 		returns numpy vector of predictions of linear regression model for X
 		https://xkcd.com/1725/
 	"""
-	raise NotImplementedError
+    return np.inner(X,w) + b
 
 
 def mean_squared_error(y_true, y_pred):
@@ -135,7 +137,7 @@ def mean_squared_error(y_true, y_pred):
 		input: two numpy vectors of object targets and model predictions.
 		return mse
 	"""
-	raise NotImplementedError
+    return ((y_true -y_pred)**2).mean()
 
 
 def linear_regression_mse_gradient(w, b, X, y_true):
@@ -144,7 +146,13 @@ def linear_regression_mse_gradient(w, b, X, y_true):
 		        X - object-feature matrix, y_true - targets.
 		returns gradient of linear regression model mean squared error w.r.t (with respect to) w and b
 	"""
-	raise NotImplementedError
+    f_w = lambda dw: mean_squared_error(y_true, linear_regression_predict(dw, b, X))
+    f_b = lambda db: mean_squared_error(y_true, linear_regression_predict(w, db, X))
+    
+    dmse_dw = gradient_approx(f_w,w)
+    dmse_db = gradient_approx_for_float(f_b,b)
+    
+    return dmse_dw, dmse_db
 
 
 class LinearRegressor:
@@ -153,9 +161,23 @@ class LinearRegressor:
 			input: object-feature matrix and targets.
 			optimises mse w.r.t model parameters 
 		"""
-		raise NotImplementedError
+        
+        sp = X_train.shape
+        if len(sp) != 1:
+            sp = sp[-1]
+        else:
+            sp = 1
+            X_train = X_train.reshape([len(X_train),1])
+        
+        
+        self.w = np.random.rand(len(X_train[0]))
+        self.b = np.random.rand()
+        for i in xrange(n_steps):
+            dmse_dw, dmse_db = linear_regression_mse_gradient(w, b, X_train, y_train)
+            self.w = self.w - learning_rate*dmse_dw
+            self.b = self.b - learning_rate*dmse_db
 
-		return self
+        return self
 
 
 	def predict(self, X):
@@ -171,7 +193,7 @@ def sigmoid_der(x):
 		input: x - float or numpy vector
 		returns sigmoid derivative at x (or at each element of x if x is a numpy vector)
 	"""
-	raise NotImplementedError
+    return np.apply_along_axis(sigmoid, 1, x)
 
 
 def relu(x):
@@ -183,7 +205,10 @@ def relu_der(x):
 		input: x - float or numpy vector
 		returns relu (sub-)derivative at x (or at each element of x if x is a numpy vector)
 	"""
-	raise NotImplementedError
+    if type(x) == float:
+        return relu(x)
+    else:
+        return np.apply_along_axis(relu_der, 1, x)
 
 
 class MLPRegressor:
